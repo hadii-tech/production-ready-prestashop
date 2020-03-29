@@ -20,13 +20,8 @@ The deployment consists of various CloudFormation templates that are deployed an
 1. Install [Terraform](https://learn.hashicorp.com/terraform/getting-started/install.html)
 2. From the root directory
     1. Execute `terraform init`
-    2. Execute `terraform apply -v 'aws_access_key=<aws_access_key>'
-                                   -v 'aws_secret_key=<aws_secret_key>'
-                                   -v 'aws_account_id=<aws_account_id>'
-                                   -v 'db_password=<database_password>'
-                                   -v 'aws_region=<aws_region'
-                                   -v 'env=<environment>'`
-        * **Note**: `db_password` corresponds to the password of the database used for the Prestashop deployment. 
+    2. Execute `terraform apply` with the appropriate vars (`-v 'var=value' ...`) as specified in `variables.tf`.
+    
 ### Teardown
  1. Execute `terraform destroy`
  
