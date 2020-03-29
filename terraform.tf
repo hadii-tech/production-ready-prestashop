@@ -59,6 +59,7 @@ resource "aws_cloudformation_stack" "ec2" {
   depends_on = [aws_cloudformation_stack.rds, aws_cloudformation_stack.efs ]
   parameters = {
     MaxInstanceCount = 10
+    DesiredInstanceCount = 1
     InstanceType = "t2.nano"
     ECSClusterName = "${local.ecs_cluster_name}"
     RDSStackName = "${local.aws_rds_stack_name}"
@@ -74,6 +75,7 @@ resource "aws_cloudformation_stack" "ecs" {
   depends_on = [aws_cloudformation_stack.ec2]
   parameters = {
     ECSClusterName = "${local.ecs_cluster_name}"
+    DesiredTaskCount = 1
     ImageUrl = "prestashop/prestashop:1.7-7.0"
     RDSStackName = "${local.aws_rds_stack_name}"
     VPCStackName = "${local.aws_vpc_stack_name}"

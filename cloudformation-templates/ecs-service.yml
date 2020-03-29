@@ -303,10 +303,7 @@ Resources:
     Properties:
       ServiceName: !Sub "${AWS::StackName}-Service"
       Cluster: !Ref 'Cluster'
-      DeploymentConfiguration:
-        MaximumPercent: 200
-        MinimumHealthyPercent: 100
-      DesiredCount: 1
+      DesiredCount: !Ref 'DesiredTaskCount'
       TaskDefinition: !Ref 'TaskDefinition'
       LoadBalancers:
         - ContainerName: !Sub "${AWS::StackName}-Container"
