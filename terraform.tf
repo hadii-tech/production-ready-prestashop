@@ -6,8 +6,9 @@ provider "aws" {
 }
 
 locals {
+  project = "prestashop"
   # Prefix to apply to all resources spun up in AWS
-  aws_resource_prefix = "${var.project}-${var.env}"
+  aws_resource_prefix = "${local.project}-${var.env}"
   # The name of the CloudFormation stack to be created for the VPC and related resources
   aws_vpc_stack_name = "${local.aws_resource_prefix}-vpc"
   # The name of the CloudFormation stack to be created for the EC2 service and related resources
@@ -37,7 +38,7 @@ resource "aws_cloudformation_stack" "rds" {
   parameters = {
     DatabaseUsername = "root"
     AllocatedStorage = 10
-    DatabasePassword = "${var.rds_db_password}"
+    DatabasePassword = "${var.db_password}"
     VPCStackName = "${local.aws_vpc_stack_name}"
     DatabaseName = "prestashop"
   }

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Deploy an ECS AutoScaling Group
+Description: Deploys an EC2 AutoScaling Groups, Public Load balancer, and Security Groups required for the entire deployment.
 Parameters:
   RDSStackName:
     Type: String

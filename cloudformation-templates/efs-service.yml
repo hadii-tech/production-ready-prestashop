@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Deploys EFS file systems required for Prestashop ECS Containers.
+Description: Deploys an EFS file system with the appropriate folder mounts required for Prestashop ECS Containers.
 Parameters:
   VPCStackName:
     Type: String

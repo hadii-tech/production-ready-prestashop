@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Configures autoscaling for the ECS Service.
+Description: Configures autoscaling between the EC2 ASG and ECS Service using CloudWatch alarms.
 Parameters:
   ECSStackName:
     Type: String

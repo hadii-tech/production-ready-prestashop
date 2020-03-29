@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: A stack for deploying containerized applications onto a cluster of EC2
+Description: Deploys containerized applications onto a cluster of EC2
   hosts using Elastic Container Service. This stack runs containers on
   hosts that are in a private VPC subnet. Outbound network traffic from the
   hosts must go out through a NAT gateway.

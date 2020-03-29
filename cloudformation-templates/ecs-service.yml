@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Deploy a service into an ECS cluster.
+Description: Deploys an elastic container service that will run Prestashop containers on registered instances in our cluster.
 Parameters:
   RDSStackName:
     Type: String

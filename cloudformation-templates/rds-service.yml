@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: Deploy an RDS MySQL instance.
+Description: Deploys an RDS MariaDB instance that Prestashop will use. Multi-AZ is disabled by default.
 Parameters:
   VPCStackName:
     Type: String
