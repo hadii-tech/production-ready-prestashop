@@ -30,8 +30,5 @@ The deployment consists of various CloudFormation templates that are deployed us
 ### Teardown
  1. Execute `terraform destroy`
  
- # Design
- See www.fadhelsolutions.com
- 
  # Contributors
  * [Muntazir Fadhel](www.fadhelsolutions.com)
