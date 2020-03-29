@@ -7,7 +7,7 @@ Deploy a Scalable, highly available, and performant Prestashop solution on AWS u
 ![Scalable Prestashop Architecture Diagram](https://github.com/Zir0-93/zir0-93.github.io/blob/master/images/scalable_presta.png?raw=true)
 
 # Getting Started
-The deployment consists of various CloudFormation templates that are deployed using the [Terraform Provider for AWS](https://github.com/terraform-providers/terraform-provider-aws):
+The deployment consists of various CloudFormation templates that are deployed and teared down using the [Terraform Provider for AWS](https://github.com/terraform-providers/terraform-provider-aws):
   * `private-vpc.yaml`: Deploys containerized applications onto a cluster of EC2 hosts using Elastic Container Service. This stack runs containers on   hosts that are in a private VPC subnet. Outbound network traffic from the
   hosts must go out through a NAT gateway.
   * `efs-service.yaml`: Deploys an EFS file system with the appropriate folder mounts required for Prestashop ECS Containers.
