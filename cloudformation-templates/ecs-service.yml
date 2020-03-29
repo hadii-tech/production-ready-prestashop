@@ -1,0 +1,358 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy a service into an ECS cluster.
+Parameters:
+  RDSStackName:
+    Type: String
+    Default: prestashop
+    Description: The name of the parent rds stack.
+  ECSAMI:
+    Description: AMI ID
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
+  ECSClusterName:
+    Description: ECS Cluster name
+    Type: String
+    Default: Cluster
+  VPCStackName:
+    Type: String
+    Default: prestashop
+    Description: The name of the parent vpc stack.
+  DesiredTaskCount:
+    Type: Number
+    Default: 1
+    Description: How many copies of the service task to run.
+  EC2StackName:
+    Type: String
+    Default: ec2-stack
+    Description: The name of the parent EC2 stack.
+  EFSStackName:
+    Type: String
+    Default: efs-stack
+    Description: The name of the parent EFS stack.
+  ImageUrl:
+    Type: String
+    Default: prestashop/prestashop:1.7-7.0
+    Description: The url of a docker image that contains the application process that
+      will handle the traffic for this service
+
+Resources:
+  # ECS Logs Group
+  LogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: prestashop-awslogs
+      RetentionInDays: 30
+
+  # ECS Resources
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Ref 'ECSClusterName'
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  EcsSecurityGroupIngressFromPublicALB:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from the public ALB
+      GroupId:
+        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'EC2SecurityGroup' ] ]
+      IpProtocol: -1
+      SourceSecurityGroupId:
+        Fn::ImportValue: !Join [':', [!Ref 'EC2StackName', 'PublicLoadBalancerSG']]
+
+  LoadBalancerRule:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref 'TargetGroup'
+          Type: 'forward'
+      LoadBalancerArn:
+        Fn::ImportValue: !Join [':', [!Ref 'EC2StackName', 'PublicLoadBalancer']]
+      Port: 80
+      Protocol: HTTP
+
+  # This is an IAM role which authorizes ECS to manage resources on your
+  # account on your behalf, such as updating your load balancer with the
+  # details of where your containers are, so that traffic can reach your
+  # containers.
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ecs.amazonaws.com]
+            Action: ['sts:AssumeRole']
+      Path: /
+      Policies:
+        - PolicyName: ecs-service
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  # Rules which allow ECS to attach network interfaces to instances
+                  # on your behalf in order for awsvpc networking mode to work right
+                  - 'ec2:AttachNetworkInterface'
+                  - 'ec2:CreateNetworkInterface'
+                  - 'ec2:CreateNetworkInterfacePermission'
+                  - 'ec2:DeleteNetworkInterface'
+                  - 'ec2:DeleteNetworkInterfacePermission'
+                  - 'ec2:Describe*'
+                  - 'ec2:DetachNetworkInterface'
+                  # Rules which allow ECS to update load balancers on your behalf
+                  # with the information sabout how to send traffic to your containers
+                  - 'elasticloadbalancing:DeregisterInstancesFromLoadBalancer'
+                  - 'elasticloadbalancing:DeregisterTargets'
+                  - 'elasticloadbalancing:Describe*'
+                  - 'elasticloadbalancing:RegisterInstancesWithLoadBalancer'
+                  - 'elasticloadbalancing:RegisterTargets'
+                Resource: '*'
+
+  # The task definition. This is a simple metadata description of what
+  # container to run, and what resource requirements it has.
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Cpu:
+        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'InstanceCPU' ] ]
+      Memory:
+        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'InstanceMemory' ] ]
+      ContainerDefinitions:
+        - Name: !Sub "${AWS::StackName}-Container"
+          Cpu:
+            Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'InstanceCPU' ] ]
+          Memory:
+            Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'InstanceMemory' ] ]
+          Image: !Ref 'ImageUrl'
+          MountPoints:
+            - ContainerPath: /var/www/html/img
+              SourceVolume: ImgEFS
+            - ContainerPath: /var/www/html/modules
+              SourceVolume: ModulesEFS
+            - ContainerPath: /var/www/html/cache
+              SourceVolume: CacheEFS
+            - ContainerPath: /var/www/html/theme
+              SourceVolume: ThemeEFS
+            - ContainerPath: /var/www/html/app/config
+              SourceVolume: ConfigEFS
+            - ContainerPath: /var/www/html/override
+              SourceVolume: OverrideEFS
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogsGroup
+              awslogs-region: !Sub "${AWS::Region}"
+              awslogs-stream-prefix: prestashop-ecs
+          PortMappings:
+            - ContainerPort: 80
+          Environment:
+            - Name: DB_PASSWD
+              Value:
+                Fn::ImportValue: !Join [':', [!Ref 'RDSStackName', 'DatabasePassword']]
+            - Name: DB_SERVER
+              Value:
+                Fn::ImportValue: !Join [':', [!Ref 'RDSStackName', 'DatabaseEndpoint']]
+            - Name: DB_USER
+              Value:
+                Fn::ImportValue: !Join [':', [!Ref 'RDSStackName', 'DatabaseUsername']]
+            - Name: PS_INSTALL_AUTO
+              Value: 1
+            - Name: DB_NAME
+              Value:
+                Fn::ImportValue: !Join [':', [!Ref 'RDSStackName', 'DatabaseName']]
+            - Name: PS_COUNTRY
+              Value: CA
+            - Name: PS_ALL_LANGUAGES
+              Value: 0
+            - Name: PS_HANDLE_DYNAMIC_DOMAIN
+              Value: 1
+            - Name: PS_PREFIX
+              Value: ps_
+            # PS_ERASE_DB needs to be set to 1 if no DB exists. Afterwards, it should be set to 0
+            - Name: PS_ERASE_DB
+              Value: 0
+            - Name: PS_DOMAIN
+              Value:
+                Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'PublicLoadBalancerDNSName' ] ]
+            - Name: PS_FOLDER_INSTALL
+              Value: installer
+            - Name: PS_FOLDER_ADMIN
+              Value: administration
+            - Name: PS_ENABLE_SSL
+              Value: 1
+      Volumes:
+        - Name : ImgEFS
+          DockerVolumeConfiguration:
+            Driver: local
+            DriverOpts:
+              type: nfs
+              device:
+                Fn::Sub:
+                  - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ImgEFS']]
+              o:
+                Fn::Sub:
+                  - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ImgEFS']]
+            Labels:
+              Name: ImgEFS
+            Scope: task
+        - Name: CacheEFS
+          DockerVolumeConfiguration:
+            Driver: local
+            DriverOpts:
+              type: nfs
+              device:
+                Fn::Sub:
+                  - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'CacheEFS']]
+              o:
+                Fn::Sub:
+                  - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'CacheEFS']]
+            Labels:
+              Name: CacheEFS
+            Scope: task
+        - Name: ThemeEFS
+          DockerVolumeConfiguration:
+            Driver: local
+            DriverOpts:
+              type: nfs
+              device:
+                Fn::Sub:
+                  - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ThemeEFS']]
+              o:
+                Fn::Sub:
+                  - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ThemeEFS']]
+            Labels:
+              Name: ThemeEFS
+            Scope: task
+        - Name: ModulesEFS
+          DockerVolumeConfiguration:
+            Driver: local
+            DriverOpts:
+              type: nfs
+              device:
+                Fn::Sub:
+                  - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ModulesEFS']]
+              o:
+                Fn::Sub:
+                  - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ModulesEFS']]
+            Labels:
+              Name: ModulesEFS
+            Scope: task
+        - Name: OverrideEFS
+          DockerVolumeConfiguration:
+            Driver: local
+            DriverOpts:
+              type: nfs
+              device:
+                Fn::Sub:
+                  - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'OverrideEFS']]
+              o:
+                Fn::Sub:
+                  - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'OverrideEFS']]
+            Labels:
+              Name: OverrideEFS
+            Scope: task
+        - Name: ConfigEFS
+          DockerVolumeConfiguration:
+            Driver: local
+            DriverOpts:
+              type: nfs
+              device:
+                Fn::Sub:
+                  - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ConfigEFS']]
+              o:
+                Fn::Sub:
+                  - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
+                  - FileSystem:
+                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ConfigEFS']]
+            Labels:
+              Name: ConfigEFS
+            Scope: task
+
+  # The service is a resource which allows you to run multiple
+  # copies of a type of task, and gather up their logs and metrics, as well
+  # as monitor the number of running tasks and replace any that have crashed
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - LoadBalancerRule
+    Properties:
+      ServiceName: !Sub "${AWS::StackName}-Service"
+      Cluster: !Ref 'Cluster'
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: 1
+      TaskDefinition: !Ref 'TaskDefinition'
+      LoadBalancers:
+        - ContainerName: !Sub "${AWS::StackName}-Container"
+          ContainerPort: 80
+          TargetGroupArn: !Ref 'TargetGroup'
+
+  # A target group. This is used for keeping track of all the tasks, and
+  # what IP addresses / port numbers they have. You can query it yourself,
+  # to use the addresses yourself, but most often this target group is just
+  # connected to an application load balancer, or network load balancer, so
+  # it can automatically distribute traffic across all the targets.
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 120
+      HealthCheckPath: /index.php
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 30
+      Matcher:
+        HttpCode: "200-302"
+      HealthyThresholdCount: 2
+      Name: !Sub "${AWS::StackName}-TargetGroup"
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 8
+      VpcId:
+        Fn::ImportValue: !Join [ ':', [ !Ref 'VPCStackName', 'VPCId' ] ]
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: true
+        - Key: stickiness.lb_cookie.duration_seconds
+          Value: 3600
+
+Outputs:
+  Service:
+    Description: The ECS service
+    Value: !Ref 'Service'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'Service' ] ]
+  ServiceName:
+    Description: Name of the ECS service
+    Value: !GetAtt Service.Name
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'ServiceName' ] ]
+  Cluster:
+    Description: The ECS cluster
+    Value: !Ref 'Cluster'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'Cluster' ] ]

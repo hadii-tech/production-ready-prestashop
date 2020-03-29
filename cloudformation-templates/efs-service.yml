@@ -1,0 +1,300 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Deploys EFS file systems required for Prestashop ECS Containers.
+Parameters:
+  VPCStackName:
+    Type: String
+    Default: prestashop-vpc-stack
+    Description: The name of the parent networking stack that you created. Necessary
+      to locate and reference resources created by that stack.
+Resources:
+  # Security Group for controlling access to the EFS
+  EFSSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group to control access to the EFS
+      VpcId:
+        Fn::ImportValue: !Join [ ':', [ !Ref 'VPCStackName', 'VPCId' ] ]
+
+  # img folder EFS setup
+  ImgEFS:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      FileSystemTags:
+        - Key: Name
+          Value: Img
+      PerformanceMode: generalPurpose
+  ImgMountTargetAZ1:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - ImgEFS
+    Properties:
+      FileSystemId: !Ref 'ImgEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetOne']]
+  ImgMountTargetAZ2:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - ImgEFS
+    Properties:
+      FileSystemId: !Ref 'ImgEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetTwo']]
+
+  # modules folder EFS setup
+  ModulesEFS:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      FileSystemTags:
+        - Key: Name
+          Value: Modules
+      PerformanceMode: generalPurpose
+  ModulesMountTargetAZ1:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - ModulesEFS
+    Properties:
+      FileSystemId: !Ref 'ModulesEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetOne']]
+  ModulesMountTargetAZ2:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - ModulesEFS
+    Properties:
+      FileSystemId: !Ref 'ModulesEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetTwo']]
+
+  # override folder EFS setup
+  OverrideEFS:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      FileSystemTags:
+        - Key: Name
+          Value: Override
+      PerformanceMode: generalPurpose
+  OverrideMountTargetAZ1:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - OverrideEFS
+    Properties:
+      FileSystemId: !Ref 'OverrideEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetOne']]
+  OverrideMountTargetAZ2:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - OverrideEFS
+    Properties:
+      FileSystemId: !Ref 'OverrideEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetTwo']]
+
+  # cache folder EFS setup
+  CacheEFS:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      FileSystemTags:
+        - Key: Name
+          Value: Cache
+      PerformanceMode: generalPurpose
+  CacheMountTargetAZ1:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - CacheEFS
+    Properties:
+      FileSystemId: !Ref 'CacheEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetOne']]
+  CacheMountTargetAZ2:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - CacheEFS
+    Properties:
+      FileSystemId: !Ref 'CacheEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetTwo']]
+
+  # theme folder EFS setup
+  ThemeEFS:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      FileSystemTags:
+        - Key: Name
+          Value: Theme
+      PerformanceMode: generalPurpose
+  ThemeMountTargetAZ1:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - ThemeEFS
+    Properties:
+      FileSystemId: !Ref 'ThemeEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetOne']]
+  ThemeMountTargetAZ2:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - ThemeEFS
+    Properties:
+      FileSystemId: !Ref 'ThemeEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetTwo']]
+
+  # config folder EFS setup
+  ConfigEFS:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      FileSystemTags:
+        - Key: Name
+          Value: Config
+      PerformanceMode: generalPurpose
+  ConfigMountTargetAZ1:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - ConfigEFS
+    Properties:
+      FileSystemId: !Ref 'ConfigEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetOne']]
+  ConfigMountTargetAZ2:
+    Type: AWS::EFS::MountTarget
+    DependsOn:
+      - ConfigEFS
+    Properties:
+      FileSystemId: !Ref 'ConfigEFS'
+      SecurityGroups:
+        - !Ref 'EFSSG'
+      SubnetId:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetTwo']]
+
+  #-----------------------------------------------------------
+  # The following resources are used to conduct periodic backups
+  # for the EFS file systems.
+  #-----------------------------------------------------------
+  FileSystemBackupVault:
+    Type: AWS::Backup::BackupVault
+    DeletionPolicy: Retain
+    Properties:
+      BackupVaultName: !Sub "${AWS::StackName}-backup"
+      AccessPolicy: !Sub |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "backup:DeleteBackupVault",
+              "Resource": "*"
+            }
+          ]
+        }
+
+  FileSystemBackupPlan:
+    Type: AWS::Backup::BackupPlan
+    Properties:
+      BackupPlan:
+        BackupPlanName: Daily-Weekly-Monthly
+        BackupPlanRule:
+          - RuleName: DailyBackups
+            TargetBackupVault: !Ref 'FileSystemBackupVault'
+            ScheduleExpression: "cron(0 5 ? * * *)"
+            StartWindowMinutes: 480
+            CompletionWindowMinutes: 10080
+            Lifecycle:
+              DeleteAfterDays: 35
+          - RuleName: MonthlyBackups
+            TargetBackupVault: !Ref 'FileSystemBackupVault'
+            ScheduleExpression: "cron(0 5 1 * ? *)"
+            StartWindowMinutes: 480
+            CompletionWindowMinutes: 10080
+            Lifecycle:
+              DeleteAfterDays: 35
+
+  #-----------------------------------------------------------
+  # File system backup selection
+  #-----------------------------------------------------------
+  FileSystemBackupSelection:
+    Type: AWS::Backup::BackupSelection
+    Properties:
+      BackupPlanId: !Ref 'FileSystemBackupPlan'
+      BackupSelection:
+        IamRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/service-role/AWSBackupDefaultServiceRole
+        Resources:
+          - !Sub arn:aws:elasticfilesystem:${AWS::Region}:${AWS::AccountId}:file-system/${ImgEFS}
+          - !Sub arn:aws:elasticfilesystem:${AWS::Region}:${AWS::AccountId}:file-system/${ThemeEFS}
+          - !Sub arn:aws:elasticfilesystem:${AWS::Region}:${AWS::AccountId}:file-system/${CacheEFS}
+          - !Sub arn:aws:elasticfilesystem:${AWS::Region}:${AWS::AccountId}:file-system/${ConfigEFS}
+          - !Sub arn:aws:elasticfilesystem:${AWS::Region}:${AWS::AccountId}:file-system/${OverrideEFS}
+          - !Sub arn:aws:elasticfilesystem:${AWS::Region}:${AWS::AccountId}:file-system/${ModulesEFS}
+        SelectionName: !Sub "${AWS::StackName}-backup"
+
+Outputs:
+  EFSSG:
+    Description: EFS Security Group
+    Value: !Ref 'EFSSG'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'EFSSG' ] ]
+  ConfigEFS:
+    Description: Config EFS
+    Value: !Ref 'ConfigEFS'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'ConfigEFS' ] ]
+  ThemeEFS:
+    Description: Theme EFS
+    Value: !Ref 'ThemeEFS'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'ThemeEFS' ] ]
+  ModulesEFS:
+    Description: Modules EFS
+    Value: !Ref 'ModulesEFS'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'ModulesEFS' ] ]
+  OverrideEFS:
+    Description: Override EFS
+    Value: !Ref 'OverrideEFS'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'OverrideEFS' ] ]
+  CacheEFS:
+    Description: Cache EFS
+    Value: !Ref 'CacheEFS'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'CacheEFS' ] ]
+  ImgEFS:
+    Description: Img EFS
+    Value: !Ref 'ImgEFS'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'ImgEFS' ] ]

@@ -1,0 +1,226 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Configures autoscaling for the ECS Service.
+Parameters:
+  ECSStackName:
+    Type: String
+    Default: ecs-stack
+    Description: The name of the parent ecs stack that created the ECS Service.
+  EC2StackName:
+    Type: String
+    Default: ecs-stack
+    Description: The name of the parent ec2 stack that created the EC2 Service.
+  LowCPUThreshold:
+    Type: Number
+    Default: 30
+  HighCPUThreshold:
+    Type: Number
+    Default: 60
+  LowMemThreshold:
+    Type: Number
+    Default: 30
+  HighMemThreshold:
+    Type: Number
+    Default: 60
+
+Resources:
+  # Enables Autoscaling for the ECS service. A 1:1 ratio is maintained between ECS tasks and EC2 instances.
+  ScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      ServiceNamespace: 'ecs'
+      ScalableDimension: 'ecs:service:DesiredCount'
+      ResourceId:
+        Fn::Join:
+          - '/'
+          - - service
+            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
+            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+      MinCapacity: 1
+      MaxCapacity: 15
+      RoleARN:
+        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'AutoscalingRoleARN' ] ]
+
+  ScaleServiceUpPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    DependsOn: ScalableTarget
+    Properties:
+      PolicyName: !Join
+        - '-'
+        - - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+          - ScaleServiceUpPolicy
+      PolicyType: StepScaling
+      ResourceId:
+        Fn::Join:
+          - '/'
+          - - service
+            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
+            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+      ScalableDimension: 'ecs:service:DesiredCount'
+      ServiceNamespace: 'ecs'
+      StepScalingPolicyConfiguration:
+        AdjustmentType: 'ChangeInCapacity'
+        StepAdjustments:
+          - ScalingAdjustment: 1
+            MetricIntervalLowerBound: 0
+        MetricAggregationType: 'Average'
+        Cooldown: 180
+
+  ScaleASGUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: "ChangeInCapacity"
+      PolicyType: "SimpleScaling"
+      AutoScalingGroupName:
+        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'AutoScalingGroup' ] ]
+      ScalingAdjustment: 1
+
+  HighCpuUsageAlarm:
+    DependsOn:
+      - ScalableTarget
+      - ScaleServiceUpPolicy
+      - ScaleASGUpPolicy
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Join
+        - '-'
+        -  - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+           - HighCpuAlarm
+
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ServiceName
+          Value:
+            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+        - Name: ClusterName
+          Value:
+            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: !Ref 'HighCPUThreshold'
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref 'ScaleServiceUpPolicy'
+        - !Ref 'ScaleASGUpPolicy'
+
+  HighMemUsageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+      - ScalableTarget
+      - ScaleServiceUpPolicy
+      - ScaleASGUpPolicy
+    Properties:
+      AlarmName: !Join
+        - '-'
+        - - !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+          - 'HighMemAlarm'
+      MetricName: MemUtilization
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ServiceName
+          Value:
+            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+        - Name: ClusterName
+          Value:
+            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: !Ref 'HighMemThreshold'
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref 'ScaleServiceUpPolicy'
+        - !Ref 'ScaleASGUpPolicy'
+
+  ScaleServiceDownPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    DependsOn: ScalableTarget
+    Properties:
+      PolicyName: !Join
+        - '-'
+        - - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+          - 'ScaleServiceDownPolicy'
+      PolicyType: StepScaling
+      ResourceId:
+        Fn::Join:
+          - '/'
+          - - service
+            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
+            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+      ScalableDimension: 'ecs:service:DesiredCount'
+      ServiceNamespace: 'ecs'
+      StepScalingPolicyConfiguration:
+        AdjustmentType: 'ChangeInCapacity'
+        StepAdjustments:
+          - MetricIntervalUpperBound: 0
+            ScalingAdjustment: -1
+        MetricAggregationType: 'Average'
+        Cooldown: 180
+
+  ScaleASGDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: "ChangeInCapacity"
+      PolicyType: "SimpleScaling"
+      AutoScalingGroupName:
+        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'AutoScalingGroup' ] ]
+      ScalingAdjustment: -1
+
+  LowCpuUsageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+      - ScalableTarget
+      - ScaleServiceUpPolicy
+      - ScaleASGUpPolicy
+    Properties:
+      AlarmName: !Join
+        - '-'
+        - - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+          - 'LowCpuAlarm'
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ServiceName
+          Value:
+            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+        - Name: ClusterName
+          Value:
+            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: !Ref 'LowCPUThreshold'
+      ComparisonOperator: LessThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref 'ScaleServiceDownPolicy'
+        - !Ref 'ScaleASGDownPolicy'
+
+  LowMemUsageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+      - ScalableTarget
+      - ScaleServiceUpPolicy
+      - ScaleASGUpPolicy
+    Properties:
+      AlarmName: !Join
+        - '-'
+        - - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+          - 'LowMemAlarm'
+      MetricName: MemUtilization
+      Namespace: AWS/ECS
+      Dimensions:
+        - Name: ServiceName
+          Value:
+            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+        - Name: ClusterName
+          Value:
+            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 3
+      Threshold: !Ref 'LowMemThreshold'
+      ComparisonOperator: LessThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref 'ScaleServiceDownPolicy'
+        - !Ref 'ScaleASGDownPolicy'

@@ -1,0 +1,197 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Deploy an RDS MySQL instance.
+Parameters:
+  VPCStackName:
+    Type: String
+    Default: prestashop-vpc-stack
+    Description: The name of the parent networking stack that you created. Necessary
+      to locate and reference resources created by that stack.
+  DatabaseName:
+    Default: prestashop
+    Description: The database name (Default "prestashop", change if you are creating more than one database)
+    Type: String
+
+  # Note: Modifying default instance size likely requires modification of innodb_buffer_pool_size mariadb param.
+  DatabaseInstanceType:
+    Default: db.t2.small
+    AllowedValues:
+      - db.t2.micro
+      - db.t2.small
+      - db.t2.medium
+      - db.t2.large
+      - db.t2.xlarge
+      - db.t2.2xlarge
+      - db.r4.large
+      - db.r4.xlarge
+      - db.r4.2xlarge
+      - db.r4.4xlarge
+      - db.r4.8xlarge
+      - db.r4.16xlarge
+      - db.m4.large
+      - db.m4.2xlarge
+      - db.m4.4xlarge
+      - db.m4.10xlarge
+      - db.m4.16xlarge
+    Description: "The instance type to use for the database. Pricing: https://aws.amazon.com/rds/mysql/pricing/"
+    Type: String
+
+  DatabasePassword:
+    AllowedPattern: "[a-zA-Z0-9]+"
+    ConstraintDescription: must contain only alphanumeric characters. Must have length 8-41.
+    Description: The database admin account password. (Choose a secure password)
+    MaxLength: '41'
+    MinLength: '8'
+    NoEcho: 'true'
+    Type: String
+
+  DatabaseUsername:
+    Default: "root"
+    AllowedPattern: "[a-zA-Z0-9]+"
+    ConstraintDescription: must contain only alphanumeric characters. Must have length 1-16
+    Description: The database admin account user name. (Default "admin")
+    MaxLength: '16'
+    MinLength: '1'
+    Type: String
+
+  AllocatedStorage:
+    Default: 10
+    Description: Storage to allocate in GB (Default "20")
+    Type: Number
+    MinValue: 10
+    MaxValue: 50
+    ConstraintDescription: Allocated storage size must be in range 20-50 GB
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Database Configuration
+        Parameters:
+          - DatabaseInstanceType
+          - DatabaseName
+          - DatabaseUsername
+          - DatabasePassword
+    ParameterLabels:
+      DatabaseName:
+        default: Database name
+      DatabaseInstanceType:
+        default: Database Instance Type
+      DatabasePassword:
+        default: Database Password
+      DatabaseUsername:
+        default: Database Username
+
+Resources:
+  # RDS DB Network Setup
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Fn::ImportValue:
+          !Join [ ':', [ !Ref 'VPCStackName', 'VPCId' ] ]
+      GroupDescription: Access to database
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-db-sg"
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: CloudFormation managed DB subnet group.
+      SubnetIds:
+        - Fn::ImportValue: !Join [ ':', [ !Ref 'VPCStackName', 'PublicSubnetOne' ] ]
+        - Fn::ImportValue: !Join [ ':', [ !Ref 'VPCStackName', 'PublicSubnetTwo' ] ]
+
+  DBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Parameters that tune up MariaDB for better Prestashop performances
+      Family: mariadb10.1
+      Parameters:
+        performance_schema: 'OFF'
+        innodb_lock_wait_timeout: '120'
+        max_allowed_packet: '16777216'
+        key_buffer_size: '134217728'
+        read_buffer_size: '2097152'
+        read_rnd_buffer_size: '1048576'
+        thread_cache_size: '80'
+        join_buffer_size: '2097152'
+        sort_buffer_size: '2097152'
+        max_connections: '400'
+        tmp_table_size: '33554432'
+        max_heap_table_size: '33554432'
+        table_definition_cache: '8192'
+        query_cache_size: '33554432'
+        innodb_buffer_pool_size: '1500000000'
+        innodb_log_file_size: '134217728'
+        innodb_log_buffer_size: '8388608'
+        innodb_flush_log_at_trx_commit: '2'
+        innodb_thread_concurrency: '32'
+        innodb_read_io_threads: '8'
+        innodb_write_io_threads: '8'
+        innodb_flush_method: O_DIRECT
+        innodb_file_per_table: '1'
+        innodb_io_capacity: '2000'
+        innodb_file_format: Barracuda
+        innodb_buffer_pool_dump_at_shutdown: 'ON'
+        innodb_buffer_pool_load_at_startup: 'ON'
+        innodb_log_compressed_pages: '0'
+
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllowMajorVersionUpgrade: "true"
+      Engine: MariaDB
+      EngineVersion: 10.1.14
+      DBInstanceClass:
+        Ref: DatabaseInstanceType
+      DBParameterGroupName: !Ref DBParameterGroup
+      PubliclyAccessible: "true"
+      StorageType: "gp2"
+      AllocatedStorage: !Ref AllocatedStorage
+      BackupRetentionPeriod: 35
+      DBInstanceIdentifier: !Sub "${AWS::StackName}-db"
+      MasterUsername:
+        Ref: DatabaseUsername
+      MasterUserPassword:
+        Ref: DatabasePassword
+      PreferredBackupWindow: 02:00-03:00
+      PreferredMaintenanceWindow: mon:03:00-mon:04:00
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+Outputs:
+  DatabaseEndpoint:
+    Description: The database endpoint
+    Value: !GetAtt DatabaseInstance.Endpoint.Address
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabaseEndpoint' ] ]
+  DatabasePort:
+    Description: The database port
+    Value: !GetAtt DatabaseInstance.Endpoint.Port
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabasePort' ] ]
+  DatabasePassword:
+    Description: The database password
+    Value:
+      Ref: DatabasePassword
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabasePassword' ] ]
+  DatabaseUsername:
+    Description: The database user
+    Value:
+      Ref: DatabaseUsername
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabaseUsername' ] ]
+  DatabaseName:
+    Description: The database name
+    Value:
+      Ref: DatabaseName
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabaseName' ] ]
+  DatabaseSecurityGroup:
+    Description: The database security group
+    Value:
+      Ref: DatabaseSecurityGroup
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabaseSecurityGroup' ] ]
