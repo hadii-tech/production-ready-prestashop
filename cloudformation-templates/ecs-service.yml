@@ -299,6 +299,7 @@ Resources:
   Service:
     Type: AWS::ECS::Service
     DependsOn:
+      - Cluster
       - LoadBalancerRule
     Properties:
       ServiceName: !Sub "${AWS::StackName}-Service"
