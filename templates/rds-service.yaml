@@ -1,16 +1,16 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Deploys an RDS MariaDB instance that Prestashop will use. Multi-AZ is disabled by default.
 Parameters:
-  VPCStackName:
+  StackUUID:
+    Description: Stack UUID
     Type: String
-    Default: prestashop-vpc-stack
-    Description: The name of the parent networking stack that you created. Necessary
-      to locate and reference resources created by that stack.
   DatabaseName:
     Default: prestashop
     Description: The database name (Default "prestashop", change if you are creating more than one database)
     Type: String
-
+  VPCId:
+    Description: The ID of the VPC that this stack is deployed in
+    Type: String
   # Note: Modifying default instance size likely requires modification of innodb_buffer_pool_size mariadb param.
   DatabaseInstanceType:
     Default: db.t2.small
@@ -34,7 +34,6 @@ Parameters:
       - db.m4.16xlarge
     Description: "The instance type to use for the database. Pricing: https://aws.amazon.com/rds/mysql/pricing/"
     Type: String
-
   DatabasePassword:
     AllowedPattern: "[a-zA-Z0-9]+"
     ConstraintDescription: must contain only alphanumeric characters. Must have length 8-41.
@@ -43,7 +42,6 @@ Parameters:
     MinLength: '8'
     NoEcho: 'true'
     Type: String
-
   DatabaseUsername:
     Default: "root"
     AllowedPattern: "[a-zA-Z0-9]+"
@@ -52,7 +50,6 @@ Parameters:
     MaxLength: '16'
     MinLength: '1'
     Type: String
-
   AllocatedStorage:
     Default: 10
     Description: Storage to allocate in GB (Default "20")
@@ -60,7 +57,12 @@ Parameters:
     MinValue: 10
     MaxValue: 50
     ConstraintDescription: Allocated storage size must be in range 20-50 GB
-
+  PublicSubnetOne:
+    Description: Private subnet 1 in the VPC.
+    Type: String
+  PublicSubnetTwo:
+    Description: Private subnet 2 in the VPC.
+    Type: String
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -86,9 +88,7 @@ Resources:
   DatabaseSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      VpcId:
-        Fn::ImportValue:
-          !Join [ ':', [ !Ref 'VPCStackName', 'VPCId' ] ]
+      VpcId: !Ref 'VPCId'
       GroupDescription: Access to database
       Tags:
         - Key: Name
@@ -99,8 +99,8 @@ Resources:
     Properties:
       DBSubnetGroupDescription: CloudFormation managed DB subnet group.
       SubnetIds:
-        - Fn::ImportValue: !Join [ ':', [ !Ref 'VPCStackName', 'PublicSubnetOne' ] ]
-        - Fn::ImportValue: !Join [ ':', [ !Ref 'VPCStackName', 'PublicSubnetTwo' ] ]
+        - !Ref 'PublicSubnetOne'
+        - !Ref 'PublicSubnetTwo'
 
   DBParameterGroup:
     Type: AWS::RDS::DBParameterGroup
@@ -140,13 +140,13 @@ Resources:
   DatabaseInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      AllowMajorVersionUpgrade: "true"
+      AllowMajorVersionUpgrade: true
       Engine: MariaDB
       EngineVersion: 10.1.14
       DBInstanceClass:
         Ref: DatabaseInstanceType
       DBParameterGroupName: !Ref DBParameterGroup
-      PubliclyAccessible: "true"
+      PubliclyAccessible: true
       StorageType: "gp2"
       AllocatedStorage: !Ref AllocatedStorage
       BackupRetentionPeriod: 35
@@ -164,34 +164,42 @@ Outputs:
   DatabaseEndpoint:
     Description: The database endpoint
     Value: !GetAtt DatabaseInstance.Endpoint.Address
-    Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabaseEndpoint' ] ]
+    Export: 
+      Name: !Sub
+        - ${StackUUID}:DatabaseEndpoint
+        - { StackUUID: !Ref 'StackUUID' }
   DatabasePort:
     Description: The database port
     Value: !GetAtt DatabaseInstance.Endpoint.Port
-    Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabasePort' ] ]
+    Export:  
+      Name: !Sub
+        - ${StackUUID}:DatabasePort
+        - { StackUUID: !Ref 'StackUUID' }
   DatabasePassword:
     Description: The database password
-    Value:
-      Ref: DatabasePassword
-    Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabasePassword' ] ]
+    Value: !Ref DatabasePassword
+    Export: 
+      Name:  !Sub
+        - ${StackUUID}:DatabasePassword
+        - { StackUUID: !Ref 'StackUUID' }
   DatabaseUsername:
     Description: The database user
-    Value:
-      Ref: DatabaseUsername
-    Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabaseUsername' ] ]
+    Value: !Ref DatabaseUsername
+    Export: 
+      Name:  !Sub
+        - ${StackUUID}:DatabaseUsername
+        - { StackUUID: !Ref 'StackUUID' }
   DatabaseName:
     Description: The database name
-    Value:
-      Ref: DatabaseName
-    Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabaseName' ] ]
+    Value: !Ref DatabaseName
+    Export:  
+      Name: !Sub
+        - ${StackUUID}:DatabaseName
+        - { StackUUID: !Ref 'StackUUID' }
   DatabaseSecurityGroup:
     Description: The database security group
-    Value:
-      Ref: DatabaseSecurityGroup
-    Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DatabaseSecurityGroup' ] ]
+    Value: !Ref DatabaseSecurityGroup
+    Export: 
+      Name: !Sub
+        - ${StackUUID}:DatabaseSecurityGroup
+        - { StackUUID: !Ref 'StackUUID' }

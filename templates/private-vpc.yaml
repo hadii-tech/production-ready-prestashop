@@ -3,6 +3,10 @@ Description: Deploys containerized applications onto a cluster of EC2
   hosts using Elastic Container Service. This stack runs containers on
   hosts that are in a private VPC subnet. Outbound network traffic from the
   hosts must go out through a NAT gateway.
+Parameters:
+  StackUUID:
+    Description: Stack UUID
+    Type: String
 Mappings:
   # Hard values for the subnet masks. These masks define
   # the range of internal IP addresses that can be assigned.
@@ -176,24 +180,34 @@ Outputs:
     Description: The ID of the VPC that this stack is deployed in
     Value: !Ref 'VPC'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'VPCId' ] ]
+      Name: !Sub
+        - ${StackUUID}:VPCId
+        - { StackUUID: !Ref 'StackUUID' }
   PublicSubnetOne:
     Description: Public subnet one
     Value: !Ref 'PublicSubnetOne'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'PublicSubnetOne' ] ]
+      Name: !Sub
+        - ${StackUUID}:PublicSubnetOne
+        - { StackUUID: !Ref 'StackUUID' }
   PublicSubnetTwo:
     Description: Public subnet two
     Value: !Ref 'PublicSubnetTwo'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'PublicSubnetTwo' ] ]
+      Name: !Sub
+        - ${StackUUID}:PublicSubnetTwo
+        - { StackUUID: !Ref 'StackUUID' }
   PrivateSubnetOne:
     Description: Private subnet one
     Value: !Ref 'PrivateSubnetOne'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'PrivateSubnetOne' ] ]
+      Name: !Sub
+        - ${StackUUID}:PrivateSubnetOne
+        - { StackUUID: !Ref 'StackUUID' }
   PrivateSubnetTwo:
     Description: Private subnet two
     Value: !Ref 'PrivateSubnetTwo'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'PrivateSubnetTwo' ] ]
+      Name: !Sub
+        - ${StackUUID}:PrivateSubnetTwo
+        - { StackUUID: !Ref 'StackUUID' }
