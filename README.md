@@ -23,7 +23,7 @@ The deployment consists of various CloudFormation templates that are deployed an
     2. Execute `terraform apply` with the appropriate vars (`-v 'var=value' ...`) as specified in `variables.tf`.
     
 ### Teardown
- 1. Execute `terraform destroy`
+ 1. Execute `terraform destroy` 
  
  # Contributors
  * [Muntazir Fadhel](www.fadhelsolutions.com)
