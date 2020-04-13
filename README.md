@@ -1,7 +1,7 @@
 # production-ready-prestashop
  [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) ![](https://github.com/fadhel-solutions/production-ready-prestashop/workflows/ci-cd/badge.svg?branch=master)
  
-Deploy a Scalable, highly available, and performant Prestashop solution on AWS using CloudFormation.
+This repository deploys a Scalable, highly available, and performant Prestashop solution on AWS using CloudFormation. Launch the entire stack in your AWS region of choice using one of the options below:
 | Region       | Launch |
 |--------------|--------|
 | us-east-1    |[![launch-stack](https://hadii.s3.ca-central-1.amazonaws.com/assets/download.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml)        |
