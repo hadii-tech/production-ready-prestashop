@@ -1,0 +1,12 @@
+project:
+  name: prestashop
+  regions:
+    - ca-central-1
+  shorten_stack_name: true
+tests:
+  prestashop:
+    template: templates/production_ready_prestashop.yaml
+    parameters:
+      StackUUID: $[taskcat_genpass_5]
+      DatabasePassword: $[taskcat_genpass_8]
+      NestedStacksS3URL: https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest

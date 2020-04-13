@@ -1,10 +1,30 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Deploys an EC2 AutoScaling Groups, Public Load balancer, and Security Groups required for the entire deployment.
 Parameters:
-  RDSStackName:
+  StackUUID:
+    Description: Stack UUID
     Type: String
-    Default: prestashop
-    Description: The name of the parent rds stack.
+  EFSSG:
+    Description: EFS security group
+    Type: String
+  DatabaseSecurityGroup:
+    Description: Database security group
+    Type: String
+  VPCId:
+    Description: The ID of the VPC that this stack is deployed in
+    Type: String
+  PrivateSubnetOne:
+    Description: Private subnet 1 in the VPC.
+    Type: String
+  PrivateSubnetTwo:
+    Description: Private subnet 2 in the VPC.
+    Type: String
+  PublicSubnetOne:
+    Description: Private subnet 1 in the VPC.
+    Type: String
+  PublicSubnetTwo:
+    Description: Private subnet 2 in the VPC.
+    Type: String
   EC2AMI:
     Description: AMI ID
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
@@ -13,14 +33,6 @@ Parameters:
     Description: ECS Cluster name
     Type: String
     Default: Cluster
-  VPCStackName:
-    Type: String
-    Default: prestashop
-    Description: The name of the parent vpc stack.
-  EFSStackName:
-    Type: String
-    Default: efs-stack
-    Description: The name of the parent EFS stack.
   MaxInstanceCount:
     Type: Number
     Default: 10
@@ -76,12 +88,11 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Access to the public facing load balancer
-      VpcId:
-        Fn::ImportValue: !Join [ ':', [ !Ref 'VPCStackName', 'VPCId' ] ]
+      VpcId: !Ref 'VPCId'
       SecurityGroupIngress:
         # Allow access to ALB from anywhere on the internet
         - CidrIp: 0.0.0.0/0
-          IpProtocol: -1
+          IpProtocol: "-1"
 
   PublicLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -89,12 +100,12 @@ Resources:
       Scheme: internet-facing
       LoadBalancerAttributes:
         - Key: idle_timeout.timeout_seconds
-          Value: 30
+          Value: "30"
       Subnets:
         # The load balancer is placed into the public subnets, so that traffic
         # from the internet can reach the load balancer directly via the internet gateway
-        - Fn::ImportValue: !Join [ ':', [ !Ref 'VPCStackName', 'PublicSubnetOne' ] ]
-        - Fn::ImportValue: !Join [ ':', [ !Ref 'VPCStackName', 'PublicSubnetTwo' ] ]
+        - !Ref 'PublicSubnetOne'
+        - !Ref 'PublicSubnetTwo'
       SecurityGroups: [!Ref 'PublicLoadBalancerSG']
 
 
@@ -105,37 +116,39 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Access to the ECS hosts that run containers
-      VpcId:
-        Fn::ImportValue: !Join [ ':', [ !Ref 'VPCStackName', 'VPCId' ] ]
+      VpcId: !Ref 'VPCId'
   EcsSecurityGroupIngressFromSelf:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Ingress from other containers in the same security group
       GroupId: !Ref 'EC2SecurityGroup'
-      IpProtocol: -1
+      IpProtocol: "-1"
       SourceSecurityGroupId: !Ref 'EC2SecurityGroup'
   # Allow ingress from ECS containers into EFS file systems
   NFSSecurityGroupIngressFromECS:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: NFS ingress from ECS containers
-      GroupId:
-        Fn::ImportValue:
-          !Join [':', [!Ref 'EFSStackName', 'EFSSG']]
-      IpProtocol: -1
+      GroupId: !Ref 'EFSSG'
+      IpProtocol: "-1"
       FromPort: 2049
       ToPort: 2049
       SourceSecurityGroupId: !Ref 'EC2SecurityGroup'
+  EC2SecurityGroupIngressFromPublicALB:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress from the public ALB
+      GroupId: !Ref 'EC2SecurityGroup'
+      IpProtocol: "-1"
+      SourceSecurityGroupId: !Ref 'PublicLoadBalancerSG'
 
   # Allow ingress traffic from ecs containers into RDS DB
   DatabaseSecurityGroupIngressFromECS:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: RDS ingress from ecs containers
-      GroupId:
-        Fn::ImportValue:
-          !Join [':', [!Ref 'RDSStackName', 'DatabaseSecurityGroup']]
-      IpProtocol: -1
+      GroupId: !Ref 'DatabaseSecurityGroup'
+      IpProtocol: "-1"
       SourceSecurityGroupId: !Ref 'EC2SecurityGroup'
   # Autoscaling group. This launches the actual EC2 instances that will register
   # themselves as members of the cluster, and run the docker containers.
@@ -143,10 +156,8 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       VPCZoneIdentifier:
-        - Fn::ImportValue:
-            !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetOne']]
-        - Fn::ImportValue:
-            !Join [':', [!Ref 'VPCStackName', 'PrivateSubnetTwo']]
+        - !Ref 'PrivateSubnetOne'
+        - !Ref 'PrivateSubnetTwo'
       LaunchConfigurationName: !Ref 'ContainerInstances'
       MinSize: '1'
       DesiredCapacity: !Ref 'DesiredInstanceCount'
@@ -156,7 +167,7 @@ Resources:
         Timeout: PT15M
     UpdatePolicy:
       AutoScalingReplacingUpdate:
-        WillReplace: 'true'
+        WillReplace: true
   ContainerInstances:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
@@ -237,50 +248,73 @@ Outputs:
     Description: AutoScaling role
     Value: !Ref 'AutoscalingRole'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'AutoscalingRole' ] ]
+      Name: !Sub
+        - ${StackUUID}:AutoscalingRolez
+        - { StackUUID: !Ref 'StackUUID' }
   AutoscalingRoleARN:
     Description: AutoScaling role ARN
     Value: !GetAtt AutoscalingRole.Arn
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'AutoscalingRoleARN' ] ]
+      Name: !Sub
+        - ${StackUUID}:AutoscalingRoleARN
+        - { StackUUID: !Ref 'StackUUID' }
   AutoScalingGroup:
     Description: AutoScaling group
     Value: !Ref 'AutoScalingGroup'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'AutoScalingGroup' ] ]
+      Name: !Sub
+        - ${StackUUID}:AutoScalingGroup
+        - { StackUUID: !Ref 'StackUUID' }
   EC2SecurityGroup:
     Description: Security group for EC2 instances
     Value: !Ref 'EC2SecurityGroup'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'EC2SecurityGroup' ] ]
+      Name: !Sub
+        - ${StackUUID}:EC2SecurityGroup
+        - { StackUUID: !Ref 'StackUUID' }
   PublicLoadBalancerSG:
     Description: Security group for public load balancer
     Value: !Ref 'PublicLoadBalancerSG'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'PublicLoadBalancerSG' ] ]
+      Name: !Sub
+        - ${StackUUID}:PublicLoadPublicLoadBalancerSGBalancer
+        - { StackUUID: !Ref 'StackUUID' }
   PublicLoadBalancer:
     Description: Public load balancer
     Value: !Ref 'PublicLoadBalancer'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'PublicLoadBalancer' ] ]
+      Name: !Sub
+        - ${StackUUID}:PublicLoadBalancer
+        - { StackUUID: !Ref 'StackUUID' }
+        
   InstanceType:
     Description: EC2 instance types
     Value: !Ref 'InstanceType'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'InstanceType' ] ]
+      Name: !Sub
+        - ${StackUUID}:InstanceType
+        - { StackUUID: !Ref 'StackUUID' }
+        
   InstanceMemory:
     Description: EC2 instance memory
     Value: !FindInMap [InstanceCpuMem, !Ref 'InstanceType', Memory]
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'InstanceMemory' ] ]
+      Name: !Sub
+        - ${StackUUID}:InstanceMemory
+        - { StackUUID: !Ref 'StackUUID' }
+        
   InstanceCPU:
     Description: EC2 instance CPU
     Value: !FindInMap [InstanceCpuMem, !Ref 'InstanceType', CPU]
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'InstanceCPU' ] ]
+      Name: !Sub
+        - ${StackUUID}:InstanceCPU
+        - { StackUUID: !Ref 'StackUUID' }
   PublicLoadBalancerDNSName:
     Description: Public load balancer DNS name
     Value: !Sub "${PublicLoadBalancer.DNSName}"
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'PublicLoadBalancerDNSName' ] ]
+      Name: !Sub
+        - ${StackUUID}:PublicLoadBalancerDNSName
+        - { StackUUID: !Ref 'StackUUID' }
 

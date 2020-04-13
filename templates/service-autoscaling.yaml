@@ -1,14 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Configures autoscaling between the EC2 ASG and ECS Service using CloudWatch alarms.
 Parameters:
-  ECSStackName:
+  AutoscalingRoleARN:
+    Description: EC2 Autoscaling Role arn.
     Type: String
-    Default: ecs-stack
-    Description: The name of the parent ecs stack that created the ECS Service.
-  EC2StackName:
+  AutoScalingGroup:
+    Description: Name of EC2 AutoScaling Group.
     Type: String
-    Default: ecs-stack
-    Description: The name of the parent ec2 stack that created the EC2 Service.
+  ServiceName:
+    Description: Name of the ECS Service.
+    Type: String
+  Cluster:
+    Description: Name of the ECS Cluster.
+    Type: String
   LowCPUThreshold:
     Type: Number
     Default: 30
@@ -33,12 +37,11 @@ Resources:
         Fn::Join:
           - '/'
           - - service
-            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
-            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+            - !Ref 'Cluster'
+            - !Ref 'ServiceName'
       MinCapacity: 1
-      MaxCapacity: 15
-      RoleARN:
-        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'AutoscalingRoleARN' ] ]
+      MaxCapacity: 100
+      RoleARN: !Ref 'AutoscalingRoleARN'
 
   ScaleServiceUpPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
@@ -46,15 +49,15 @@ Resources:
     Properties:
       PolicyName: !Join
         - '-'
-        - - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+        - - !Ref 'ServiceName'
           - ScaleServiceUpPolicy
       PolicyType: StepScaling
       ResourceId:
         Fn::Join:
           - '/'
           - - service
-            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
-            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+            - !Ref 'Cluster'
+            - !Ref 'ServiceName'
       ScalableDimension: 'ecs:service:DesiredCount'
       ServiceNamespace: 'ecs'
       StepScalingPolicyConfiguration:
@@ -71,19 +74,17 @@ Resources:
       AdjustmentType: "ChangeInCapacity"
       PolicyType: "SimpleScaling"
       AutoScalingGroupName:
-        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'AutoScalingGroup' ] ]
+        !Ref 'AutoScalingGroup'
       ScalingAdjustment: 1
 
   HighCpuUsageAlarm:
     DependsOn:
       - ScalableTarget
-      - ScaleServiceUpPolicy
-      - ScaleASGUpPolicy
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: !Join
         - '-'
-        -  - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+        -  - !Ref 'ServiceName'
            - HighCpuAlarm
 
       MetricName: CPUUtilization
@@ -91,10 +92,10 @@ Resources:
       Dimensions:
         - Name: ServiceName
           Value:
-            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+            !Ref 'ServiceName'
         - Name: ClusterName
           Value:
-            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
+            !Ref 'Cluster'
       Statistic: Average
       Period: 60
       EvaluationPeriods: 3
@@ -108,22 +109,20 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     DependsOn:
       - ScalableTarget
-      - ScaleServiceUpPolicy
-      - ScaleASGUpPolicy
     Properties:
       AlarmName: !Join
         - '-'
-        - - !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+        - - !Sub "${AWS::StackName}:ServiceName"
           - 'HighMemAlarm'
       MetricName: MemUtilization
       Namespace: AWS/ECS
       Dimensions:
         - Name: ServiceName
           Value:
-            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+            !Ref 'ServiceName'
         - Name: ClusterName
           Value:
-            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
+            !Ref 'Cluster'
       Statistic: Average
       Period: 60
       EvaluationPeriods: 3
@@ -139,15 +138,15 @@ Resources:
     Properties:
       PolicyName: !Join
         - '-'
-        - - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+        - - !Ref 'ServiceName'
           - 'ScaleServiceDownPolicy'
       PolicyType: StepScaling
       ResourceId:
         Fn::Join:
           - '/'
           - - service
-            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
-            - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+            - !Ref 'Cluster'
+            - !Ref 'ServiceName'
       ScalableDimension: 'ecs:service:DesiredCount'
       ServiceNamespace: 'ecs'
       StepScalingPolicyConfiguration:
@@ -164,7 +163,7 @@ Resources:
       AdjustmentType: "ChangeInCapacity"
       PolicyType: "SimpleScaling"
       AutoScalingGroupName:
-        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'AutoScalingGroup' ] ]
+        !Ref 'AutoScalingGroup'
       ScalingAdjustment: -1
 
   LowCpuUsageAlarm:
@@ -176,17 +175,17 @@ Resources:
     Properties:
       AlarmName: !Join
         - '-'
-        - - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+        - - !Ref 'ServiceName'
           - 'LowCpuAlarm'
       MetricName: CPUUtilization
       Namespace: AWS/ECS
       Dimensions:
         - Name: ServiceName
           Value:
-            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+            !Ref 'ServiceName'
         - Name: ClusterName
           Value:
-            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
+            !Ref 'Cluster'
       Statistic: Average
       Period: 60
       EvaluationPeriods: 3
@@ -205,17 +204,17 @@ Resources:
     Properties:
       AlarmName: !Join
         - '-'
-        - - Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+        - - !Ref 'ServiceName'
           - 'LowMemAlarm'
       MetricName: MemUtilization
       Namespace: AWS/ECS
       Dimensions:
         - Name: ServiceName
           Value:
-            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'ServiceName' ] ]
+            !Ref 'ServiceName'
         - Name: ClusterName
           Value:
-            Fn::ImportValue: !Join [ ':', [ !Ref 'ECSStackName', 'Cluster' ] ]
+            !Ref 'Cluster'
       Statistic: Average
       Period: 60
       EvaluationPeriods: 3

@@ -1,0 +1,193 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploys the entire production ready prestashop solution.
+Parameters:
+  DatabasePassword:
+    AllowedPattern: "[a-zA-Z0-9]+"
+    ConstraintDescription: must contain only alphanumeric characters. Must have length 8-41.
+    Description: The database admin account password. (Choose a secure password)
+    MaxLength: '41'
+    MinLength: '8'
+    NoEcho: 'true'
+    Type: String
+  NestedStacksS3URL:
+    Description: S3 URL containing nested templates in this stack
+    Default: https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest
+    Type: String
+  StackUUID:
+    Description: Stack UUID
+    Default: prestashop
+    AllowedPattern: "[a-zA-Z0-9]+"
+    ConstraintDescription: Must contain only alphanumeric characters. Must have length 8-41.
+    MaxLength: '41'
+    MinLength: '5'
+    Type: String
+  AllocatedDBStorage:
+    Default: 10
+    Description: Storage to allocate in GB (Default "20")
+    Type: Number
+    MinValue: 10
+    MaxValue: 50
+  MaxInstanceCount:
+    Type: Number
+    Default: 10
+    Description: Max number of EC2 instances to run at once for this deployment.
+  DesiredInstanceCount:
+    Type: Number
+    Default: 1
+    Description: How many instances to run in the ECS Cluster.
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.nano
+    AllowedValues: [t2.nano, t2.micro, t2.small, t2.medium, t2.large, c4.large, c4.xlarge,
+                    m5.large, m5.xlarge]
+    ConstraintDescription: Please choose a valid instance type.
+  DesiredTaskCount:
+    Type: Number
+    Default: 1
+    Description: How many copies of the service task to run.
+  LowCPUThreshold:
+    Description: CPU threshold to trigger scale-in.
+    Type: Number
+    Default: 30
+  HighCPUThreshold:
+    Description: CPU threshold to trigger scale-out.
+    Type: Number
+    Default: 60
+  LowMemThreshold:
+    Description: Memory threshold to trigger scale-in.
+    Type: Number
+    Default: 30
+  HighMemThreshold:
+    Description: Memory threshold to trigger scale-out.
+    Type: Number
+    Default: 60
+Resources:
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Tags:
+        - Key: CFStack
+          Value: VPC
+      Parameters:
+        StackUUID: !Ref 'StackUUID'
+      TemplateURL: !Sub
+        - "${NestedStacksS3URL}/private-vpc.yaml"
+        - { NestedStacksS3URL: !Ref 'NestedStacksS3URL' }
+      TimeoutInMinutes: 10
+  RDSStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Tags:
+        - Key: CFStack
+          Value: RDS
+      Parameters:
+        StackUUID: !Ref 'StackUUID'
+        DatabaseUsername: "root"
+        AllocatedStorage: !Ref 'AllocatedDBStorage'
+        DatabasePassword: !Ref 'DatabasePassword'
+        DatabaseName: !Ref 'StackUUID'
+        VPCId: !GetAtt VPCStack.Outputs.VPCId
+        PublicSubnetOne: !GetAtt VPCStack.Outputs.PublicSubnetOne
+        PublicSubnetTwo: !GetAtt VPCStack.Outputs.PublicSubnetTwo
+      TemplateURL: !Sub
+        -  "${NestedStacksS3URL}/rds-service.yaml"
+        - { NestedStacksS3URL: !Ref 'NestedStacksS3URL' }
+      TimeoutInMinutes: 15
+  EFSStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Tags:
+        - Key: CFStack
+          Value: EFS
+      Parameters:
+        StackUUID: !Ref 'StackUUID'
+        VPCId: !GetAtt VPCStack.Outputs.VPCId
+        PrivateSubnetOne: !GetAtt VPCStack.Outputs.PrivateSubnetOne
+        PrivateSubnetTwo: !GetAtt VPCStack.Outputs.PrivateSubnetTwo
+      TemplateURL: !Sub
+        -  "${NestedStacksS3URL}/efs-service.yaml"
+        - { NestedStacksS3URL: !Ref 'NestedStacksS3URL' }
+      TimeoutInMinutes: 10
+  EC2Stack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Tags:
+        - Key: CFStack
+          Value: EC2
+      Parameters:
+        StackUUID: !Ref 'StackUUID'
+        MaxInstanceCount: !Ref 'MaxInstanceCount'
+        DesiredInstanceCount: !Ref 'DesiredInstanceCount'
+        InstanceType: !Ref 'InstanceType'
+        ECSClusterName: !Sub ["${StackUUID}-Cluster", { StackUUID: !Ref 'StackUUID'}]
+        VPCId: !GetAtt VPCStack.Outputs.VPCId
+        PublicSubnetOne: !GetAtt VPCStack.Outputs.PublicSubnetOne
+        PublicSubnetTwo: !GetAtt VPCStack.Outputs.PublicSubnetTwo
+        PrivateSubnetOne: !GetAtt VPCStack.Outputs.PrivateSubnetOne
+        PrivateSubnetTwo: !GetAtt VPCStack.Outputs.PrivateSubnetTwo
+        DatabaseSecurityGroup: !GetAtt RDSStack.Outputs.DatabaseSecurityGroup
+        EFSSG: !GetAtt EFSStack.Outputs.EFSSG
+      TemplateURL: !Sub
+        -  "${NestedStacksS3URL}/ec2-service.yaml"
+        - { NestedStacksS3URL: !Ref 'NestedStacksS3URL' }
+      TimeoutInMinutes: 10
+  ECSStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Tags:
+        - Key: CFStack
+          Value: ECS
+      Parameters:
+        StackUUID: !Ref 'StackUUID'
+        ECSClusterName: !Sub ["${StackUUID}-Cluster", { StackUUID: !Ref 'StackUUID'}]
+        DesiredTaskCount: !Ref 'DesiredTaskCount'
+        ImageUrl: "prestashop/prestashop:1.7-7.0"
+        VPCId: !GetAtt VPCStack.Outputs.VPCId
+        ImgEFS: !GetAtt EFSStack.Outputs.ImgEFS
+        CacheEFS: !GetAtt EFSStack.Outputs.CacheEFS
+        OverrideEFS: !GetAtt EFSStack.Outputs.OverrideEFS
+        ThemeEFS: !GetAtt EFSStack.Outputs.ThemeEFS
+        ConfigEFS: !GetAtt EFSStack.Outputs.ConfigEFS
+        ModulesEFS: !GetAtt EFSStack.Outputs.ModulesEFS
+        PublicLoadBalancerDNSName: !GetAtt EC2Stack.Outputs.PublicLoadBalancerDNSName
+        PublicLoadBalancer: !GetAtt EC2Stack.Outputs.PublicLoadBalancer
+        InstanceCPU: !GetAtt EC2Stack.Outputs.InstanceCPU
+        InstanceMemory: !GetAtt EC2Stack.Outputs.InstanceMemory
+        DatabaseName: !GetAtt RDSStack.Outputs.DatabaseName
+        DatabasePassword: !GetAtt RDSStack.Outputs.DatabasePassword
+        DatabaseUsername: !GetAtt RDSStack.Outputs.DatabaseUsername
+        DatabaseEndpoint: !GetAtt RDSStack.Outputs.DatabaseEndpoint
+      TemplateURL: !Sub
+        -  "${NestedStacksS3URL}/ecs-service.yaml"
+        - { NestedStacksS3URL: !Ref 'NestedStacksS3URL' }
+      TimeoutInMinutes: 10
+  AutoScaleStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      Tags:
+        - Key: CFStack
+          Value: AutoScale
+      Parameters:
+        LowCPUThreshold: !Ref 'LowCPUThreshold'
+        HighCPUThreshold: !Ref 'HighCPUThreshold'
+        LowMemThreshold: !Ref 'LowMemThreshold'
+        HighMemThreshold: !Ref 'HighMemThreshold'
+        AutoscalingRoleARN: !GetAtt EC2Stack.Outputs.AutoscalingRoleARN
+        AutoScalingGroup: !GetAtt EC2Stack.Outputs.AutoScalingGroup
+        ServiceName: !GetAtt ECSStack.Outputs.ServiceName
+        Cluster: !GetAtt ECSStack.Outputs.Cluster
+      TemplateURL: !Sub
+        -  "${NestedStacksS3URL}/service-autoscaling.yaml"
+        - { NestedStacksS3URL: !Ref 'NestedStacksS3URL' }
+      TimeoutInMinutes: 5
+Outputs:
+  DatabasePassword:
+    Description: Prestashop database password
+    Value: !Ref 'DatabasePassword'
+  PrestashopURL:
+    Description: Prestashop front-end store URL
+    Value: !GetAtt EC2Stack.Outputs.PublicLoadBalancerDNSName
+  DatabaseEndpoint:
+    Description: RDS database server URL
+    Value: !GetAtt RDSStack.Outputs.DatabaseEndpoint

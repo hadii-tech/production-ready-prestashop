@@ -1,34 +1,62 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Deploys an elastic container service that will run Prestashop containers on registered instances in our cluster.
 Parameters:
-  RDSStackName:
+  StackUUID:
+    Description: Stack UUID
     Type: String
-    Default: prestashop
-    Description: The name of the parent rds stack.
-  ECSAMI:
-    Description: AMI ID
-    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ecs/optimized-ami/amazon-linux-2/recommended/image_id
+  VPCId:
+    Description: The ID of the VPC that this stack is deployed in
+    Type: String
+  ImgEFS:
+    Description: Prestashop img folder EFS.
+    Type: String
+  CacheEFS:
+    Description: Prestashop cache folder EFS.
+    Type: String
+  OverrideEFS:
+    Description: Prestashop override folder EFS.
+    Type: String
+  ThemeEFS:
+    Description: Prestashop theme folder EFS.
+    Type: String
+  ConfigEFS:
+    Description: Prestashop config folder EFS.
+    Type: String
+  ModulesEFS:
+    Description: Prestashop modules folder EFS.
+    Type: String
+  PublicLoadBalancerDNSName:
+    Description: Public load balancer DNS name.
+    Type: String
+  DatabaseName:
+    Description: Prestashop database name.
+    Type: String
+  DatabasePassword:
+    Description: Prestashop database password.
+    Type: String
+  DatabaseUsername:
+    Description: Prestashop database username.
+    Type: String
+  DatabaseEndpoint: 
+    Description: Prestashop database server.
+    Type: String
+  PublicLoadBalancer:
+    Description: Public load balancer.
+    Type: String
+  InstanceCPU:
+    Description: EC2 Instance CPU
+    Type: Number
+  InstanceMemory:
+    Description: EC2 Instance memory
+    Type: Number
   ECSClusterName:
     Description: ECS Cluster name
     Type: String
     Default: Cluster
-  VPCStackName:
-    Type: String
-    Default: prestashop
-    Description: The name of the parent vpc stack.
   DesiredTaskCount:
     Type: Number
     Default: 1
     Description: How many copies of the service task to run.
-  EC2StackName:
-    Type: String
-    Default: ec2-stack
-    Description: The name of the parent EC2 stack.
-  EFSStackName:
-    Type: String
-    Default: efs-stack
-    Description: The name of the parent EFS stack.
   ImageUrl:
     Type: String
     Default: prestashop/prestashop:1.7-7.0
@@ -46,21 +74,12 @@ Resources:
   # ECS Resources
   Cluster:
     Type: AWS::ECS::Cluster
+    DeletionPolicy: "Retain"
     Properties:
       ClusterName: !Ref 'ECSClusterName'
       ClusterSettings:
         - Name: containerInsights
           Value: enabled
-
-  EcsSecurityGroupIngressFromPublicALB:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      Description: Ingress from the public ALB
-      GroupId:
-        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'EC2SecurityGroup' ] ]
-      IpProtocol: -1
-      SourceSecurityGroupId:
-        Fn::ImportValue: !Join [':', [!Ref 'EC2StackName', 'PublicLoadBalancerSG']]
 
   LoadBalancerRule:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -68,8 +87,7 @@ Resources:
       DefaultActions:
         - TargetGroupArn: !Ref 'TargetGroup'
           Type: 'forward'
-      LoadBalancerArn:
-        Fn::ImportValue: !Join [':', [!Ref 'EC2StackName', 'PublicLoadBalancer']]
+      LoadBalancerArn: !Ref 'PublicLoadBalancer'
       Port: 80
       Protocol: HTTP
 
@@ -116,16 +134,12 @@ Resources:
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Cpu:
-        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'InstanceCPU' ] ]
-      Memory:
-        Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'InstanceMemory' ] ]
+      Cpu: !Ref 'InstanceCPU'
+      Memory: !Ref 'InstanceMemory'
       ContainerDefinitions:
         - Name: !Sub "${AWS::StackName}-Container"
-          Cpu:
-            Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'InstanceCPU' ] ]
-          Memory:
-            Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'InstanceMemory' ] ]
+          Cpu: !Ref 'InstanceCPU'
+          Memory: !Ref 'InstanceMemory'
           Image: !Ref 'ImageUrl'
           MountPoints:
             - ContainerPath: /var/www/html/img
@@ -150,39 +164,34 @@ Resources:
             - ContainerPort: 80
           Environment:
             - Name: DB_PASSWD
-              Value:
-                Fn::ImportValue: !Join [':', [!Ref 'RDSStackName', 'DatabasePassword']]
+              Value: !Ref 'DatabasePassword'
             - Name: DB_SERVER
-              Value:
-                Fn::ImportValue: !Join [':', [!Ref 'RDSStackName', 'DatabaseEndpoint']]
+              Value: !Ref 'DatabaseEndpoint'
             - Name: DB_USER
-              Value:
-                Fn::ImportValue: !Join [':', [!Ref 'RDSStackName', 'DatabaseUsername']]
+              Value: !Ref 'DatabaseUsername'
             - Name: PS_INSTALL_AUTO
-              Value: 1
+              Value: "1"
             - Name: DB_NAME
-              Value:
-                Fn::ImportValue: !Join [':', [!Ref 'RDSStackName', 'DatabaseName']]
+              Value: !Ref 'DatabaseName'
             - Name: PS_COUNTRY
               Value: CA
             - Name: PS_ALL_LANGUAGES
-              Value: 0
+              Value: "0"
             - Name: PS_HANDLE_DYNAMIC_DOMAIN
-              Value: 1
+              Value: "1"
             - Name: PS_PREFIX
               Value: ps_
             # PS_ERASE_DB needs to be set to 1 if no DB exists. Afterwards, it should be set to 0
             - Name: PS_ERASE_DB
-              Value: 0
+              Value: "1"
             - Name: PS_DOMAIN
-              Value:
-                Fn::ImportValue: !Join [ ':', [ !Ref 'EC2StackName', 'PublicLoadBalancerDNSName' ] ]
+              Value: !Ref 'PublicLoadBalancerDNSName'
             - Name: PS_FOLDER_INSTALL
               Value: installer
             - Name: PS_FOLDER_ADMIN
               Value: administration
             - Name: PS_ENABLE_SSL
-              Value: 1
+              Value: "1"
       Volumes:
         - Name : ImgEFS
           DockerVolumeConfiguration:
@@ -192,13 +201,11 @@ Resources:
               device:
                 Fn::Sub:
                   - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ImgEFS']]
+                  - FileSystem: !Ref 'ImgEFS'
               o:
                 Fn::Sub:
                   - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ImgEFS']]
+                  - FileSystem: !Ref 'ImgEFS'
             Labels:
               Name: ImgEFS
             Scope: task
@@ -210,13 +217,11 @@ Resources:
               device:
                 Fn::Sub:
                   - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'CacheEFS']]
+                  - FileSystem: !Ref 'CacheEFS'
               o:
                 Fn::Sub:
                   - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'CacheEFS']]
+                  - FileSystem: !Ref 'CacheEFS'
             Labels:
               Name: CacheEFS
             Scope: task
@@ -228,13 +233,11 @@ Resources:
               device:
                 Fn::Sub:
                   - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ThemeEFS']]
+                  - FileSystem: !Ref 'ThemeEFS'
               o:
                 Fn::Sub:
                   - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ThemeEFS']]
+                  - FileSystem: !Ref 'ThemeEFS'
             Labels:
               Name: ThemeEFS
             Scope: task
@@ -246,13 +249,11 @@ Resources:
               device:
                 Fn::Sub:
                   - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ModulesEFS']]
+                  - FileSystem: !Ref 'ModulesEFS'
               o:
                 Fn::Sub:
                   - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ModulesEFS']]
+                  - FileSystem: !Ref 'ModulesEFS'
             Labels:
               Name: ModulesEFS
             Scope: task
@@ -264,13 +265,11 @@ Resources:
               device:
                 Fn::Sub:
                   - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'OverrideEFS']]
+                  - FileSystem: !Ref 'OverrideEFS'
               o:
                 Fn::Sub:
                   - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'OverrideEFS']]
+                  - FileSystem: !Ref 'OverrideEFS'
             Labels:
               Name: OverrideEFS
             Scope: task
@@ -282,13 +281,11 @@ Resources:
               device:
                 Fn::Sub:
                   - "${FileSystem}.efs.${AWS::Region}.amazonaws.com:/"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ConfigEFS']]
+                  - FileSystem: !Ref 'ConfigEFS'
               o:
                 Fn::Sub:
                   - "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
-                  - FileSystem:
-                      Fn::ImportValue: !Join [':', [!Ref 'EFSStackName', 'ConfigEFS']]
+                  - FileSystem: !Ref 'ConfigEFS'
             Labels:
               Name: ConfigEFS
             Scope: task
@@ -299,7 +296,6 @@ Resources:
   Service:
     Type: AWS::ECS::Service
     DependsOn:
-      - Cluster
       - LoadBalancerRule
     Properties:
       ServiceName: !Sub "${AWS::StackName}-Service"
@@ -326,31 +322,35 @@ Resources:
       Matcher:
         HttpCode: "200-302"
       HealthyThresholdCount: 2
-      Name: !Sub "${AWS::StackName}-TargetGroup"
       Port: 80
       Protocol: HTTP
       UnhealthyThresholdCount: 8
-      VpcId:
-        Fn::ImportValue: !Join [ ':', [ !Ref 'VPCStackName', 'VPCId' ] ]
+      VpcId: !Ref 'VPCId'
       TargetGroupAttributes:
         - Key: stickiness.enabled
-          Value: true
+          Value: "true"
         - Key: stickiness.lb_cookie.duration_seconds
-          Value: 3600
+          Value: "3600"
 
 Outputs:
   Service:
     Description: The ECS service
     Value: !Ref 'Service'
-    Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'Service' ] ]
+    Export: 
+      Name: !Sub
+        - ${StackUUID}:Service
+        - { StackUUID: !Ref 'StackUUID' }
   ServiceName:
     Description: Name of the ECS service
     Value: !GetAtt Service.Name
-    Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'ServiceName' ] ]
+    Export: 
+      Name: !Sub
+        - ${StackUUID}:ServiceName
+        - { StackUUID: !Ref 'StackUUID' }
   Cluster:
     Description: The ECS cluster
     Value: !Ref 'Cluster'
-    Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'Cluster' ] ]
+    Export: 
+      Name: !Sub
+        - ${StackUUID}:Cluster
+        - { StackUUID: !Ref 'StackUUID' }
