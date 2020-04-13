@@ -2,9 +2,22 @@
  [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) ![](https://github.com/fadhel-solutions/production-ready-prestashop/workflows/ci-cd/badge.svg?branch=master)
  
 Deploy a Scalable, highly available, and performant Prestashop solution on AWS using CloudFormation.
+| Region       | Launch |
+|--------------|--------|
+| us-east-1    |[![launch-stack](https://hadii.s3.ca-central-1.amazonaws.com/assets/download.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml)        |
+| us-west-1    | [![launch-stack](https://hadii.s3.ca-central-1.amazonaws.com/assets/download.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-1#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml)          |
+| ap-south-1   | [![launch-stack](https://hadii.s3.ca-central-1.amazonaws.com/assets/download.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-south-1#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml)          |
+| ap-east-1    | [![launch-stack](https://hadii.s3.ca-central-1.amazonaws.com/assets/download.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-east-1#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml)          |
+| ca-central-1 | [![launch-stack](https://hadii.s3.ca-central-1.amazonaws.com/assets/download.png)](https://console.aws.amazon.com/cloudformation/home?region=ca-central-1#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml)       |
+| eu-central-1 | [![launch-stack](https://hadii.s3.ca-central-1.amazonaws.com/assets/download.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml)          |
+| eu-west-1    | [![launch-stack](https://hadii.s3.ca-central-1.amazonaws.com/assets/download.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml)          |
+| eu-north-1   |[![launch-stack](https://hadii.s3.ca-central-1.amazonaws.com/assets/download.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-north-1#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml)           |
 
-[![launch-stack](https://s3.amazonaws.com/cloudformation-examples/cloudformation-launch-stack.png)](https://console.aws.amazon.com/cloudformation/home?region=ca-central-1#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml)
 
+**Want to launch this stack in a region that's not listed?** Navigate to `https://console.aws.amazon.com/cloudformation/home?region=YOUR_REGION#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml`
+
+# Design
+Check out the design docs here (coming soon).
 ![Scalable Prestashop Architecture Diagram](https://github.com/Zir0-93/zir0-93.github.io/blob/master/images/scalable_presta.png?raw=true)
 
 # Getting Started
