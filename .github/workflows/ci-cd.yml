@@ -1,4 +1,4 @@
-name: Validate, test, and publish (master only) CF stacks.
+name: ci-cd
 
 on:
   push:
