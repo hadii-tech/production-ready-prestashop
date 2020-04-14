@@ -50,4 +50,4 @@ Refer to `.github/workflows/ci-cd.yml` to get an idea of what the CI pipeline do
 
 
  # Contributors
- * [Muntazir Fadhel](www.mfadhel.com)
+ * [Muntazir Fadhel](http://mfadhel.com)
