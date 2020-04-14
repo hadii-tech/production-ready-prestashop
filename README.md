@@ -1,6 +1,6 @@
 # production-ready-prestashop
  
- [![Generic badge](https://img.shields.io/badge/Maintained%20by-Hadii%20Technologies-50C878.svg)](https://hadii.ca) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) ![](https://github.com/fadhel-solutions/production-ready-prestashop/workflows/ci-cd/badge.svg?branch=master)
+ [![maintained-by](https://img.shields.io/badge/Maintained%20by-Hadii%20Technologies-50C878.svg)](https://hadii.ca) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) ![](https://github.com/fadhel-solutions/production-ready-prestashop/workflows/ci-cd/badge.svg?branch=master)
  
 This repository deploys a Scalable, highly available, and performant [Prestashop](https://www.prestashop.com/en) solution in the [AWS cloud](https://aws.amazon.com/) using [CloudFormation](https://aws.amazon.com/cloudformation/). Launch the entire stack in your AWS region of choice using one of the options below:
 | Region       | Launch |
