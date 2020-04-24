@@ -2,6 +2,7 @@ project:
   name: prestashop
   regions:
     - ca-central-1
+    - us-west-1
   shorten_stack_name: true
 tests:
   prestashop:
