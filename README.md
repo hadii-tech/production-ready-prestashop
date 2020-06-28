@@ -19,7 +19,7 @@ This repository deploys a Scalable, highly available, and performant [Prestashop
 
 # Design
 Check out the design docs here (coming soon).
-![Scalable Prestashop Architecture Diagram](https://github.com/Zir0-93/zir0-93.github.io/blob/master/images/scalable_presta.png?raw=true)
+![Scalable Prestashop Architecture Diagram](/resources/scalable_presta.png)
 
 # Getting Started
 The entire solution is represented using multiple CloudFormation stacks:
