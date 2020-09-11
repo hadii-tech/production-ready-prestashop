@@ -18,7 +18,7 @@ This repository deploys a Scalable, highly available, and performant [Prestashop
 **Want to launch this stack in a region that's not listed?** Navigate to `https://console.aws.amazon.com/cloudformation/home?region=YOUR_REGION#/stacks/new?stackName=prestashop-stack&templateURL=https://production-ready-prestashop.s3.ca-central-1.amazonaws.com/versions/latest/production_ready_prestashop.yaml`
 
 # Design
-Check out the design docs here (coming soon).
+Read more about the high level design of the system [here](https://www.hadii.ca/insights/scalable-prestashop).
 ![Scalable Prestashop Architecture Diagram](/resources/scalable_presta.png)
 
 # Getting Started
