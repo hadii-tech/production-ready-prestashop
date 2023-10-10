@@ -142,7 +142,7 @@ Resources:
     Properties:
       AllowMajorVersionUpgrade: true
       Engine: MariaDB
-      EngineVersion: 10.1.14
+      EngineVersion: 10.3.35
       DBInstanceClass:
         Ref: DatabaseInstanceType
       DBParameterGroupName: !Ref DBParameterGroup
